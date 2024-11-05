@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { Campaign } from './campaign.entity';
 
 @Injectable()
@@ -10,8 +10,16 @@ export class CampaignService {
     private readonly campaignRepository: Repository<Campaign>,
   ) {}
 
-  async findAll(): Promise<Campaign[]> {
-    return this.campaignRepository.find();
+  async findAll(
+    page: number,
+    limit: number,
+  ): Promise<{ data: Campaign[]; total: number; page: number; limit: number }> {
+    const [data, total] = await this.campaignRepository.findAndCount({
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    console.log('service', page, limit, total, data);
+    return { data, total, page, limit };
   }
 
   async create(campaignData: Campaign): Promise<Campaign> {
@@ -32,5 +40,11 @@ export class CampaignService {
 
   async delete(id: number): Promise<void> {
     await this.campaignRepository.delete(id);
+  }
+
+  async search(name: string): Promise<Campaign[]> {
+    return await this.campaignRepository.find({
+      where: { name: Like(`%${name}%`) },
+    });
   }
 }

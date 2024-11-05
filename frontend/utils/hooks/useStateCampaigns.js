@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
-const useCampaigns = () => {
+const useCampaignsCampaigns = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [sortedCampaigns, setSortedCampaigns] = useState([]);
   const [name, setName] = useState("");
@@ -11,18 +11,7 @@ const useCampaigns = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isAscending, setIsAscending] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const campaignsPerPage = 5;
-
-  useEffect(() => {
-    const fetchCampaigns = async () => {
-      const response = await fetch("http://localhost:3000/campaigns");
-      const data = await response.json();
-      setCampaigns(data);
-      setSortedCampaigns(data);
-    };
-
-    fetchCampaigns();
-  }, []);
+  const [totalPages, setTotalPages] = useState(1);
 
   return {
     campaigns,
@@ -35,7 +24,7 @@ const useCampaigns = () => {
     currentPage,
     isAscending,
     searchQuery,
-    campaignsPerPage,
+    totalPages,
     setCampaigns,
     setSortedCampaigns,
     setName,
@@ -46,7 +35,8 @@ const useCampaigns = () => {
     setCurrentPage,
     setIsAscending,
     setSearchQuery,
+    setTotalPages,
   };
 };
 
-export default useCampaigns;
+export default useCampaignsCampaigns;

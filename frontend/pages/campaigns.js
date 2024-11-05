@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
-import useCampaigns from "@/utils/hooks/useCampaigns";
+import { useEffect } from "react";
+import useCampaignsCampaigns from "@/utils/hooks/useStateCampaigns";
+import {
+  fetchCampaigns,
+  updateCampaign,
+  createCampaign,
+  deleteCampaign,
+  searchCampaigns,
+} from "@/utils/req/requests";
 
 const Campaigns = () => {
   const {
@@ -13,7 +20,7 @@ const Campaigns = () => {
     currentPage,
     isAscending,
     searchQuery,
-    campaignsPerPage,
+    totalPages,
     setCampaigns,
     setSortedCampaigns,
     setName,
@@ -24,34 +31,38 @@ const Campaigns = () => {
     setCurrentPage,
     setIsAscending,
     setSearchQuery,
-  } = useCampaigns();
+    setTotalPages,
+  } = useCampaignsCampaigns();
 
-  useEffect(() => {
-    fetch("http://localhost:3000/campaigns")
-      .then((res) => res.json())
-      .then((data) => {
-        setCampaigns(data);
-        setSortedCampaigns(data);
-      });
-  }, []);
+  const updateCampaigns = async () => {
+    const data = await fetchCampaigns(
+      currentPage,
+      process.env.NEXT_PUBLIC_NUMBER_OF_ITEMS
+    );
 
-  const filteredCampaigns = sortedCampaigns.filter(
-    (campaign) =>
-      campaign.name &&
-      campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    const sortedData = data.data.sort((a, b) => {
+      const nameA = a.name.toLowerCase() || "";
+      const nameB = b.name.toLowerCase() || "";
 
-  const paginate = (campaigns) => {
-    const startIndex = (currentPage - 1) * campaignsPerPage;
-    const endIndex = startIndex + campaignsPerPage;
-    return campaigns.slice(startIndex, endIndex);
+      return isAscending
+        ? nameA.localeCompare(nameB)
+        : nameB.localeCompare(nameA);
+    });
+
+    setCampaigns(data.data);
+    setSortedCampaigns(sortedData);
+    setTotalPages(
+      Math.ceil(data.total / process.env.NEXT_PUBLIC_NUMBER_OF_ITEMS)
+    );
   };
 
-  const totalPages = Math.ceil(filteredCampaigns.length / campaignsPerPage);
-  const displayedCampaigns = paginate(filteredCampaigns);
+  useEffect(() => {
+    updateCampaigns();
+  }, [currentPage, isAscending]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const newCampaign = {
       name,
       budget: Number(budget),
@@ -61,17 +72,11 @@ const Campaigns = () => {
 
     if (editingCampaignId) {
       // Update existing campaign
-      const response = await fetch(
-        `http://localhost:3000/campaigns/${editingCampaignId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(newCampaign),
-        }
+      const updatedCampaign = await updateCampaign(
+        editingCampaignId,
+        newCampaign
       );
-      const updatedCampaign = await response.json();
+
       setCampaigns(
         campaigns.map((c) => (c.id === editingCampaignId ? updatedCampaign : c))
       );
@@ -82,16 +87,14 @@ const Campaigns = () => {
       );
     } else {
       // Create new campaign
-      const response = await fetch("http://localhost:3000/campaigns", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newCampaign),
-      });
-      const createdCampaign = await response.json();
+      const createdCampaign = await createCampaign(newCampaign);
       setCampaigns([...campaigns, createdCampaign]);
-      setSortedCampaigns([...sortedCampaigns, createdCampaign]);
+      setSortedCampaigns([
+        ...(Array.isArray(sortedCampaigns) ? sortedCampaigns : []),
+        createdCampaign,
+      ]);
+
+      setCurrentPage(1);
     }
 
     setName("");
@@ -99,6 +102,9 @@ const Campaigns = () => {
     setStartDate("");
     setEndDate("");
     setEditingCampaignId(null);
+
+    // Re-fetch to get updated pagination after create
+    updateCampaigns();
   };
 
   const handleEdit = (campaign) => {
@@ -110,12 +116,13 @@ const Campaigns = () => {
   };
 
   const handleDelete = async (id) => {
-    await fetch(`http://localhost:3000/campaigns/${id}`, {
-      method: "DELETE",
-    });
+    await deleteCampaign(id);
 
     setCampaigns(campaigns.filter((c) => c.id !== id));
     setSortedCampaigns(sortedCampaigns.filter((c) => c.id !== id));
+
+    // Re-fetch to get updated pagination after delete
+    updateCampaigns();
   };
 
   const formatDate = (dateString) => {
@@ -123,22 +130,21 @@ const Campaigns = () => {
     return date.toISOString().split("T")[0];
   };
 
-  const sortCampaigns = () => {
-    const sorted = [...sortedCampaigns].sort((a, b) => {
-      const nameA = a.name || "";
-      const nameB = b.name || "";
-
-      return isAscending
-        ? nameA.localeCompare(nameB)
-        : nameB.localeCompare(nameA);
-    });
-
-    setSortedCampaigns(sorted);
-  };
-
   const toggleSort = () => {
     setIsAscending((prev) => !prev);
-    sortCampaigns();
+  };
+
+  const handleSearch = async (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query) {
+      const data = await searchCampaigns(query);
+
+      setCampaigns(data);
+    } else {
+      updateCampaigns();
+    }
   };
 
   return (
@@ -158,7 +164,6 @@ const Campaigns = () => {
           placeholder="Budget"
           value={budget}
           onChange={(e) => setBudget(e.target.value)}
-          required
           className="border p-2 rounded"
         />
         <input
@@ -174,7 +179,6 @@ const Campaigns = () => {
           placeholder="End Date"
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
-          required
           className="border p-2 rounded"
         />
         <button type="submit" className="bg-blue-500 text-white rounded p-2">
@@ -187,7 +191,7 @@ const Campaigns = () => {
           type="text"
           placeholder="Search Campaigns"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearch}
           className="border p-2 rounded"
         />
       </div>
@@ -212,32 +216,40 @@ const Campaigns = () => {
           </tr>
         </thead>
         <tbody>
-          {displayedCampaigns.map((campaign) => (
-            <tr key={campaign.id}>
-              <td className="border-b py-2 px-4">{campaign.name}</td>
-              <td className="border-b py-2 px-4">${campaign.budget}</td>
-              <td className="border-b py-2 px-4">
-                {formatDate(campaign.startDate)}
-              </td>
-              <td className="border-b py-2 px-4">
-                {formatDate(campaign.endDate)}
-              </td>
-              <td className="border-b py-2 px-4">
-                <button
-                  onClick={() => handleEdit(campaign)}
-                  className="bg-yellow-500 text-white rounded px-2 py-1 mr-2"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(campaign.id)}
-                  className="bg-red-500 text-white rounded px-2 py-1"
-                >
-                  Delete
-                </button>
+          {campaigns && campaigns.length > 0 ? (
+            campaigns.map((campaign) => (
+              <tr key={campaign.id}>
+                <td className="border-b py-2 px-4">{campaign.name}</td>
+                <td className="border-b py-2 px-4">${campaign.budget}</td>
+                <td className="border-b py-2 px-4">
+                  {formatDate(campaign.startDate)}
+                </td>
+                <td className="border-b py-2 px-4">
+                  {formatDate(campaign.endDate)}
+                </td>
+                <td className="border-b py-2 px-4">
+                  <button
+                    onClick={() => handleEdit(campaign)}
+                    className="bg-yellow-500 text-white rounded px-2 py-1 mr-2"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(campaign.id)}
+                    className="bg-red-500 text-white rounded px-2 py-1"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="5" className="border-b py-2 px-4 text-center">
+                No campaigns found.
               </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
 

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import useCampaignsCampaigns from "@/utils/hooks/useStateCampaigns";
 import {
   fetchCampaigns,
@@ -7,6 +7,8 @@ import {
   deleteCampaign,
   searchCampaigns,
 } from "@/utils/req/requests";
+import { toast } from "react-toastify";
+import { debounce } from "@/utils/debounce/debounce";
 
 const Campaigns = () => {
   const {
@@ -77,24 +79,35 @@ const Campaigns = () => {
         newCampaign
       );
 
-      setCampaigns(
-        campaigns.map((c) => (c.id === editingCampaignId ? updatedCampaign : c))
-      );
-      setSortedCampaigns(
-        sortedCampaigns.map((c) =>
-          c.id === editingCampaignId ? updatedCampaign : c
-        )
-      );
+      if (updatedCampaign.error) {
+        toast.error(updatedCampaign.error);
+      } else {
+        setCampaigns(
+          campaigns.map((c) =>
+            c.id === editingCampaignId ? updatedCampaign : c
+          )
+        );
+        setSortedCampaigns(
+          sortedCampaigns.map((c) =>
+            c.id === editingCampaignId ? updatedCampaign : c
+          )
+        );
+        toast.success("Campaign updated successfully!");
+      }
     } else {
       // Create new campaign
       const createdCampaign = await createCampaign(newCampaign);
-      setCampaigns([...campaigns, createdCampaign]);
-      setSortedCampaigns([
-        ...(Array.isArray(sortedCampaigns) ? sortedCampaigns : []),
-        createdCampaign,
-      ]);
-
-      setCurrentPage(1);
+      if (createdCampaign.error) {
+        toast.error(createdCampaign.error);
+      } else {
+        setCampaigns([...campaigns, createdCampaign]);
+        setSortedCampaigns([
+          ...(Array.isArray(sortedCampaigns) ? sortedCampaigns : []),
+          createdCampaign,
+        ]);
+        setCurrentPage(1);
+        toast.success("Campaign created successfully!");
+      }
     }
 
     setName("");
@@ -107,6 +120,11 @@ const Campaigns = () => {
     updateCampaigns();
   };
 
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toISOString().split("T")[0];
+  };
+
   const handleEdit = (campaign) => {
     setName(campaign.name);
     setBudget(campaign.budget);
@@ -116,35 +134,49 @@ const Campaigns = () => {
   };
 
   const handleDelete = async (id) => {
-    await deleteCampaign(id);
+    const result = await deleteCampaign(id);
 
-    setCampaigns(campaigns.filter((c) => c.id !== id));
-    setSortedCampaigns(sortedCampaigns.filter((c) => c.id !== id));
-
-    // Re-fetch to get updated pagination after delete
-    updateCampaigns();
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toISOString().split("T")[0];
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      setCampaigns(campaigns.filter((c) => c.id !== id));
+      setSortedCampaigns(sortedCampaigns.filter((c) => c.id !== id));
+      toast.success("Campaign deleted successfully!");
+      // Re-fetch to get updated pagination after delete
+      updateCampaigns();
+    }
   };
 
   const toggleSort = () => {
     setIsAscending((prev) => !prev);
   };
 
-  const handleSearch = async (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-
+  const debouncedSearch = debounce(async (query) => {
     if (query) {
       const data = await searchCampaigns(query);
-
-      setCampaigns(data);
+      if (data.error) {
+        toast.error(data.error);
+      } else {
+        setCampaigns(data);
+        setSortedCampaigns(
+          data.sort((a, b) => {
+            const nameA = a.name.toLowerCase() || "";
+            const nameB = b.name.toLowerCase() || "";
+            return isAscending
+              ? nameA.localeCompare(nameB)
+              : nameB.localeCompare(nameA);
+          })
+        );
+      }
     } else {
       updateCampaigns();
     }
+  }, 500);
+
+  const handleSearch = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    debouncedSearch(query);
   };
 
   return (
@@ -156,7 +188,6 @@ const Campaigns = () => {
           placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          required
           className="border p-2 rounded"
         />
         <input
@@ -171,7 +202,6 @@ const Campaigns = () => {
           placeholder="Start Date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
-          required
           className="border p-2 rounded"
         />
         <input

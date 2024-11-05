@@ -7,6 +7,8 @@ import {
   Delete,
   Param,
   Query,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { CampaignService } from './campaign.service';
 import { Campaign } from './campaign.entity';
@@ -31,7 +33,11 @@ export class CampaignController {
 
   @Post()
   async create(@Body() campaignData: Campaign): Promise<Campaign> {
-    return this.campaignService.create(campaignData);
+    try {
+      return this.campaignService.create(campaignData);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
   }
 
   @Patch(':id')
@@ -39,7 +45,11 @@ export class CampaignController {
     @Param('id') id: number,
     @Body() campaignData: Campaign,
   ): Promise<Campaign> {
-    return this.campaignService.update(id, campaignData);
+    try {
+      return this.campaignService.update(id, campaignData);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
   }
 
   @Delete(':id')

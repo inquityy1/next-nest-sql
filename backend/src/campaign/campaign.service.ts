@@ -19,7 +19,6 @@ export class CampaignService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    console.log('service', page, limit, total, data);
     return { data, total, page, limit };
   }
 
@@ -33,6 +32,7 @@ export class CampaignService {
     const existingCampaign = await this.campaignRepository.findOne({
       where: { name: campaignData.name },
     });
+
     if (existingCampaign) {
       throw new ValidationException('Campaign name must be unique.');
     }
@@ -49,10 +49,18 @@ export class CampaignService {
 
     // Validate start and end dates
     const { startDate, endDate } = campaignData;
-    const start = new Date(startDate).toISOString();
-    const end = new Date(endDate).toISOString();
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
 
-    if (end < start) {
+    if (!start || isNaN(start.getTime())) {
+      throw new ValidationException('Invalid or missing start date.');
+    }
+
+    if (end && isNaN(end.getTime())) {
+      throw new ValidationException('Invalid end date.');
+    }
+
+    if (end && end < start) {
       throw new ValidationException(
         'End date cannot be earlier than the start date.',
       );
@@ -60,8 +68,11 @@ export class CampaignService {
 
     const campaign = this.campaignRepository.create({
       ...campaignData,
+      startDate: start.toISOString(),
+      endDate: end ? end.toISOString() : null,
       budget,
     });
+
     return this.campaignRepository.save(campaign);
   }
 
@@ -72,16 +83,9 @@ export class CampaignService {
       throw new ValidationException('Campaign not found');
     }
 
+    // Checks if campaign name is not empty
     if (!campaignData.name) {
       throw new ValidationException('Campaign name is required');
-    }
-
-    // Check if name is unique
-    const existingCampaign = await this.campaignRepository.findOne({
-      where: { name: campaignData.name },
-    });
-    if (existingCampaign) {
-      throw new ValidationException('Campaign name must be unique.');
     }
 
     // Set price to be 0 as a default if not provided

@@ -22,7 +22,6 @@ export class CampaignController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 5,
   ): Promise<{ data: Campaign[]; total: number; page: number; limit: number }> {
-    console.log('PAGE and LIMIT controllernow', page, limit);
     return this.campaignService.findAll(page, limit);
   }
 

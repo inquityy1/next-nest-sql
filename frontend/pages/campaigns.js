@@ -68,8 +68,8 @@ const Campaigns = () => {
     const newCampaign = {
       name,
       budget: Number(budget),
-      startDate: new Date(startDate).toISOString(),
-      endDate: new Date(startDate).toISOString(),
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
     };
 
     if (editingCampaignId) {

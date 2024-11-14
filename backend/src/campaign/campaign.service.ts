@@ -3,6 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { Campaign } from './campaign.entity';
 import { ValidationException } from 'src/common/exceptions/validation.exception';
+import {
+  validateCampaignName,
+  validateBudget,
+  validateDates,
+} from 'src/common/utils/validation.utils';
 
 @Injectable()
 export class CampaignService {
@@ -23,94 +28,49 @@ export class CampaignService {
   }
 
   async create(campaignData: Partial<Campaign>): Promise<Campaign> {
-    // Check if no name
-    if (!campaignData.name) {
-      throw new ValidationException('Campaign name is required');
-    }
+    const { name, budget = 0, startDate, endDate } = campaignData;
 
-    // Check if name is unique
-    const existingCampaign = await this.campaignRepository.findOne({
-      where: { name: campaignData.name },
-    });
+    // Validate name
+    await validateCampaignName(name, this.campaignRepository);
 
-    if (existingCampaign) {
-      throw new ValidationException('Campaign name must be unique.');
-    }
-
-    // Set price to be 0 as a default if not provided
-    const budget = campaignData.budget ?? 0;
-
-    // Ensure price is a positive integer
-    if (budget < 0 || !Number.isInteger(budget)) {
-      throw new ValidationException(
-        'Price must be a positive number without decimals.',
-      );
-    }
+    // Validate budget
+    validateBudget(budget);
 
     // Validate start and end dates
-    const { startDate, endDate } = campaignData;
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate ? new Date(endDate) : null;
-
-    if (!start || isNaN(start.getTime())) {
-      throw new ValidationException('Invalid or missing start date.');
-    }
-
-    if (end && isNaN(end.getTime())) {
-      throw new ValidationException('Invalid end date.');
-    }
-
-    if (end && end < start) {
-      throw new ValidationException(
-        'End date cannot be earlier than the start date.',
-      );
-    }
+    validateDates(startDate, endDate);
 
     const campaign = this.campaignRepository.create({
       ...campaignData,
-      startDate: start.toISOString(),
-      endDate: end ? end.toISOString() : null,
+      startDate: new Date(startDate).toISOString(),
+      endDate: endDate
+        ? new Date(endDate).toISOString()
+        : new Date(startDate).toISOString(),
       budget,
     });
+    console.log(startDate, endDate);
 
     return this.campaignRepository.save(campaign);
   }
 
   async update(id: number, campaignData: Partial<Campaign>): Promise<Campaign> {
     const campaign = await this.campaignRepository.findOne({ where: { id } });
+    const { name, budget = 0, startDate, endDate } = campaignData;
 
     if (!campaign) {
       throw new ValidationException('Campaign not found');
     }
 
-    // Checks if campaign name is not empty
-    if (!campaignData.name) {
-      throw new ValidationException('Campaign name is required');
-    }
+    // Validate name
+    await validateCampaignName(name, this.campaignRepository, id);
 
-    // Set price to be 0 as a default if not provided
-    const budget = campaignData.budget ?? 0;
-
-    // Ensure price is a positive integer
-    if (budget < 0 || !Number.isInteger(budget)) {
-      throw new ValidationException(
-        'Price must be a positive number without decimals.',
-      );
-    }
+    // Validate budget
+    validateBudget(budget);
 
     // Validate start and end dates
-    const { startDate, endDate } = campaignData;
-    const start = new Date(startDate).toISOString();
-    const end = new Date(endDate).toISOString();
-
-    if (end < start) {
-      throw new ValidationException(
-        'End date cannot be earlier than the start date.',
-      );
-    }
+    validateDates(startDate, endDate);
 
     Object.assign(campaign, campaignData);
-    return await this.campaignRepository.save(campaign);
+    return this.campaignRepository.save(campaign);
   }
 
   async delete(id: number): Promise<void> {
@@ -118,7 +78,7 @@ export class CampaignService {
   }
 
   async search(name: string): Promise<Campaign[]> {
-    return await this.campaignRepository.find({
+    return this.campaignRepository.find({
       where: { name: Like(`%${name}%`) },
     });
   }

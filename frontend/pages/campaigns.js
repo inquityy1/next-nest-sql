@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "react-toastify";
 
 import useUpdateCampaigns from "@/utils/hooks/useUpdateCampaigns";
 import {
-  fetchCampaigns,
   updateCampaign,
   createCampaign,
   deleteCampaign,
@@ -27,8 +26,9 @@ const Campaigns = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isAscending, setIsAscending] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
+  const [query, setQuery] = useState("");
 
-  useUpdateCampaigns(
+  const updateCampaigns = useUpdateCampaigns(
     currentPage,
     isAscending,
     setCampaigns,
@@ -36,10 +36,17 @@ const Campaigns = () => {
     setTotalPages
   );
 
+  const resetForm = () => {
+    setName("");
+    setBudget("");
+    setStartDate("");
+    setEndDate("");
+    setQuery("");
+    setEditingCampaignId(null);
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-
-    // const campaignData = { name, budget, startDate, endDate };
 
     const campaignData = {
       name,
@@ -69,6 +76,7 @@ const Campaigns = () => {
           )
         );
         toast.success("Campaign updated successfully!");
+        await updateCampaigns();
       }
     } else {
       // Create new campaign
@@ -81,16 +89,13 @@ const Campaigns = () => {
           ...(Array.isArray(sortedCampaigns) ? sortedCampaigns : []),
           createdCampaign,
         ]);
-        setCurrentPage(1);
+
         toast.success("Campaign created successfully!");
+        await updateCampaigns();
       }
     }
 
-    setName("");
-    setBudget("");
-    setStartDate("");
-    setEndDate("");
-    setEditingCampaignId(null);
+    resetForm();
   };
 
   const handleEdit = (campaign) => {
@@ -110,6 +115,8 @@ const Campaigns = () => {
       setCampaigns(campaigns.filter((c) => c.id !== id));
       setSortedCampaigns(sortedCampaigns.filter((c) => c.id !== id));
       toast.success("Campaign deleted successfully!");
+      await updateCampaigns();
+      resetForm();
     }
   };
 
@@ -130,6 +137,8 @@ const Campaigns = () => {
           })
         );
       }
+    } else {
+      await updateCampaigns();
     }
   };
 
@@ -152,7 +161,7 @@ const Campaigns = () => {
       />
 
       {/* SEARCH BAR */}
-      <SearchBar onSearch={onSearch} />
+      <SearchBar onSearch={onSearch} query={query} setQuery={setQuery} />
 
       {/* CAMPAIGN TABLE */}
       <CampaignTable

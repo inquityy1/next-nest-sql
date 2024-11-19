@@ -9,15 +9,16 @@ import {
   searchCampaigns,
 } from "@/utils/req/requests";
 import { formatDate } from "@/utils/formatDate/FormatDate";
+import useInfiniteScrollCampaigns from "@/utils/hooks/useInfiniteScrollCampaigns";
 
 import CampaignForm from "@/components/campaignForm/CampaignForm";
 import CampaignTable from "@/components/campaignTable/CampaignTable";
 import SearchBar from "@/components/searchBar/SearchBar";
 import Pagination from "@/components/pagination/Pagination";
+import InfiniteScroll from "@/components/infiniteScrollTable/InfiniteScrollTable";
 
 const Campaigns = () => {
   const [campaigns, setCampaigns] = useState([]);
-  const [sortedCampaigns, setSortedCampaigns] = useState([]);
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -27,13 +28,18 @@ const Campaigns = () => {
   const [isAscending, setIsAscending] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [query, setQuery] = useState("");
+  const [infiniteCampaigns, setInfiniteCampaigns] = useState([]);
 
   const updateCampaigns = useUpdateCampaigns(
     currentPage,
     isAscending,
     setCampaigns,
-    setSortedCampaigns,
     setTotalPages
+  );
+
+  const { loadMoreCampaigns, hasMore, loading } = useInfiniteScrollCampaigns(
+    isAscending,
+    setInfiniteCampaigns
   );
 
   const resetForm = () => {
@@ -70,11 +76,6 @@ const Campaigns = () => {
             c.id === editingCampaignId ? updatedCampaign : c
           )
         );
-        setSortedCampaigns(
-          sortedCampaigns.map((c) =>
-            c.id === editingCampaignId ? updatedCampaign : c
-          )
-        );
         toast.success("Campaign updated successfully!");
         await updateCampaigns();
       }
@@ -85,10 +86,6 @@ const Campaigns = () => {
         toast.error(createdCampaign.error);
       } else {
         setCampaigns([...campaigns, createdCampaign]);
-        setSortedCampaigns([
-          ...(Array.isArray(sortedCampaigns) ? sortedCampaigns : []),
-          createdCampaign,
-        ]);
 
         toast.success("Campaign created successfully!");
         await updateCampaigns();
@@ -113,7 +110,6 @@ const Campaigns = () => {
       toast.error(result.error);
     } else {
       setCampaigns(campaigns.filter((c) => c.id !== id));
-      setSortedCampaigns(sortedCampaigns.filter((c) => c.id !== id));
       toast.success("Campaign deleted successfully!");
       await updateCampaigns();
       resetForm();
@@ -127,15 +123,6 @@ const Campaigns = () => {
         toast.error(data.error);
       } else {
         setCampaigns(data);
-        setSortedCampaigns(
-          data.sort((a, b) => {
-            const nameA = a.name.toLowerCase() || "";
-            const nameB = b.name.toLowerCase() || "";
-            return isAscending
-              ? nameA.localeCompare(nameB)
-              : nameB.localeCompare(nameA);
-          })
-        );
       }
     } else {
       await updateCampaigns();
@@ -152,32 +139,54 @@ const Campaigns = () => {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Campaigns</h1>
-      {/* CAMPAIGN FORM */}
-      <CampaignForm
-        onSubmit={handleFormSubmit}
-        campaignData={{ name, budget, startDate, endDate }}
-        onInputChange={onInputChange}
-        editingCampaignId={editingCampaignId}
-      />
+      {/* CAMPAIGN TABLE WITH PAGINATION */}
+      <>
+        {/* CAMPAIGN FORM */}
+        <CampaignForm
+          onSubmit={handleFormSubmit}
+          campaignData={{ name, budget, startDate, endDate }}
+          onInputChange={onInputChange}
+          editingCampaignId={editingCampaignId}
+        />
 
-      {/* SEARCH BAR */}
-      <SearchBar onSearch={onSearch} query={query} setQuery={setQuery} />
+        {/* SEARCH BAR */}
+        <SearchBar onSearch={onSearch} query={query} setQuery={setQuery} />
 
-      {/* CAMPAIGN TABLE */}
-      <CampaignTable
-        campaigns={sortedCampaigns}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        toggleSort={() => setIsAscending(!isAscending)}
-        isAscending={isAscending}
-      />
+        {/* CAMPAIGN TABLE */}
+        <CampaignTable
+          campaigns={campaigns}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          toggleSort={() => setIsAscending(!isAscending)}
+          sortButton={true}
+          isAscending={isAscending}
+        />
 
-      {/* PAGINATION */}
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-      />
+        {/* PAGINATION */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      </>
+      {/* CAMPAIGN TABLE WITH INFINITE SCROLL */}
+      <>
+        <h2 className="text-xl font-bold mt-8 mb-4">
+          Infinite Scroll Campaigns
+        </h2>
+        <CampaignTable
+          campaigns={infiniteCampaigns}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          toggleSort={() => setIsAscending(!isAscending)}
+          isAscending={isAscending}
+        />
+        <InfiniteScroll
+          loadMore={loadMoreCampaigns}
+          hasMore={hasMore}
+          loading={loading}
+        />
+      </>
     </div>
   );
 };

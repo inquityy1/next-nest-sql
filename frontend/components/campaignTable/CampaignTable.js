@@ -6,15 +6,18 @@ const CampaignTable = ({
   onEdit,
   onDelete,
   isAscending,
+  sortButton = false,
   toggleSort,
 }) => (
   <div>
-    <button
-      onClick={toggleSort}
-      className="bg-green-500 text-white rounded px-2 py-1 mr-2 mt-2 mb-2"
-    >
-      Sort {isAscending ? "Z-A" : "A-Z"}
-    </button>
+    {sortButton && (
+      <button
+        onClick={toggleSort}
+        className="bg-green-500 text-white rounded px-2 py-1 mr-2 mt-2 mb-2"
+      >
+        Sort {isAscending ? "Z-A" : "A-Z"}
+      </button>
+    )}
     <table className="min-w-full bg-white border border-gray-300">
       <thead>
         <tr>

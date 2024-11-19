@@ -5,7 +5,6 @@ const useUpdateCampaigns = (
   currentPage,
   isAscending,
   setCampaigns,
-  setSortedCampaigns,
   setTotalPages
 ) => {
   const updateCampaigns = async () => {
@@ -24,7 +23,6 @@ const useUpdateCampaigns = (
     });
 
     setCampaigns(data.data);
-    setSortedCampaigns(sortedData);
     setTotalPages(
       Math.ceil(data.total / process.env.NEXT_PUBLIC_NUMBER_OF_ITEMS)
     );

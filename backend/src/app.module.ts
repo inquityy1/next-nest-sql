@@ -5,6 +5,7 @@ import { CampaignModule } from './campaign/campaign.module';
 import { User } from './auth/auth.entity';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
+import { Chat } from './chat/chat.entity';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { ChatModule } from './chat/chat.module';
       username: 'postgres',
       password: 'qqwwee11',
       database: 'nextandnest',
-      entities: [Campaign, User],
+      entities: [Campaign, User, Chat],
       synchronize: true, // Use this only in development
     }),
     CampaignModule,

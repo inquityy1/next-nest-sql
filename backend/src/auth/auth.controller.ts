@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get } from '@nestjs/common';
 import { UserService } from './auth.service';
 import { ValidationException } from 'src/common/exceptions/validation.exception';
 import * as jwt from 'jsonwebtoken';
@@ -6,6 +6,11 @@ import * as jwt from 'jsonwebtoken';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly userService: UserService) {}
+
+  @Get('users')
+  async getAllUsers() {
+    return await this.userService.getAllUsers();
+  }
 
   @Post('signup')
   async signup(
@@ -15,6 +20,10 @@ export class AuthController {
       throw new ValidationException(
         'Password must be at least 6 characters long.',
       );
+    }
+
+    if (!username) {
+      throw new ValidationException('U need to have an username');
     }
 
     const user = await this.userService.createUser(username, password);
@@ -28,7 +37,7 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() { username, password }: { username: string; password: string },
-  ): Promise<{ token: string }> {
+  ): Promise<{ token: string; username: string }> {
     const user = await this.userService.findUserByUsername(username);
     if (!user) {
       throw new ValidationException('Invalid username or password.');
@@ -48,6 +57,6 @@ export class AuthController {
       { expiresIn: '1h' },
     );
 
-    return { token };
+    return { token, username: user.username };
   }
 }

@@ -37,4 +37,11 @@ export class UserService {
   ): Promise<boolean> {
     return bcrypt.compare(enteredPassword, storedPassword);
   }
+
+  async getAllUsers(): Promise<{ id: Number; username: string }[]> {
+    const users = await this.userRepository.find({
+      select: ['id', 'username'],
+    });
+    return users;
+  }
 }

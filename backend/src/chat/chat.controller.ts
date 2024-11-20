@@ -1,15 +1,17 @@
-import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, UseGuards, Param } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { MessagesService } from './chat.service';
 
 @Controller('chat')
 export class ChatController {
+  constructor(private messagesService: MessagesService) {}
+
   @UseGuards(JwtAuthGuard)
-  @Get()
-  async getChat(@Req() req) {
-    const user = req.user;
-    return {
-      message: `Welcome to the chat, ${user.username}!`,
-      user,
-    };
+  @Get('history/:user1/:user2')
+  async getChatHistory(
+    @Param('user1') user1: string,
+    @Param('user2') user2: string,
+  ) {
+    return await this.messagesService.getChatHistory(user1, user2);
   }
 }

@@ -24,10 +24,14 @@ export default function Login() {
       if (!response.ok) {
         const errorData = await response.json();
         toast.error(errorData.message || "Failed to login.");
+        return;
       }
 
       const data = await response.json();
       localStorage.setItem("authToken", data.token); // Save token to localStorage
+      localStorage.setItem("username", data.username); // Save token to localStorage
+      console.log("Saved username:", data.username);
+
       toast.success("Logged in successfully!");
       router.push("/chat"); // Redirect to chat page
     } catch (err) {

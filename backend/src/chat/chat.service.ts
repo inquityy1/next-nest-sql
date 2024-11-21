@@ -15,26 +15,38 @@ export class MessagesService {
     receiver: string,
     content: string,
   ): Promise<Chat> {
-    const message = this.messageRepository.create({
-      sender,
-      receiver,
-      content,
-    });
-    return await this.messageRepository.save(message);
+    try {
+      const message = this.messageRepository.create({
+        sender,
+        receiver,
+        content,
+      });
+      return await this.messageRepository.save(message);
+    } catch (error) {
+      throw new Error(`Failed to save messages: ${error.message}`);
+    }
   }
 
   async getChatHistory(user1: string, user2: string): Promise<Chat[]> {
-    return await this.messageRepository.find({
-      where: [
-        { sender: user1, receiver: user2 },
-        { sender: user2, receiver: user1 },
-      ],
-      order: { createdAt: 'ASC' }, // Oldest to newest
-    });
+    try {
+      return await this.messageRepository.find({
+        where: [
+          { sender: user1, receiver: user2 },
+          { sender: user2, receiver: user1 },
+        ],
+        order: { createdAt: 'ASC' }, // Oldest to newest
+      });
+    } catch (error) {
+      throw new Error(`Failed to get chat history: ${error.message}`);
+    }
   }
 
   async createMessage(data: { to: string; from: string; message: string }) {
-    const { to, from, message } = data;
-    return await this.saveMessage(from, to, message); // Use saveMessage to persist the data
+    try {
+      const { to, from, message } = data;
+      return await this.saveMessage(from, to, message); // Use saveMessage to persist the data
+    } catch (error) {
+      throw new Error(`Failed to create message: ${error.message}`);
+    }
   }
 }

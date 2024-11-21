@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import socket from "@/utils/socket/socket";
 import withAuth from "../hoc/withAuth";
 import { useRouter } from "next/router";
+import { fetchUsers, fetchChatHistory } from "@/utils/req/chatReq";
 
 function Chat() {
   const [users, setUsers] = useState([]);
@@ -15,6 +16,8 @@ function Chat() {
   useEffect(() => {
     // Access localStorage in the client
     const storedUsername = localStorage.getItem("username");
+    const authToken = localStorage.getItem("authToken");
+
     setUsername(storedUsername);
 
     // Register user in WebSocket
@@ -23,14 +26,12 @@ function Chat() {
     }
 
     // Fetch user list
-    fetch("http://localhost:3000/auth/users", {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => setUsers(data));
+    const loadUsers = async () => {
+      const data = await fetchUsers(authToken, storedUsername);
+      if (!data.error) setUsers(data);
+    };
 
+    loadUsers();
     // Handle new messages
     socket.on("receiveMessage", (data) => {
       setMessages((prev) => (Array.isArray(prev) ? [...prev, data] : [data]));
@@ -48,23 +49,23 @@ function Chat() {
   }, []);
 
   useEffect(() => {
-    if (activeUser) {
-      fetch(`http://localhost:3000/chat/history/${username}/${activeUser}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      })
-        .then((res) => res.json())
-        .then((data) => {
+    const loadChatHistory = async () => {
+      if (activeUser) {
+        const authToken = localStorage.getItem("authToken");
+        const data = await fetchChatHistory(username, activeUser, authToken);
+        if (!data.error) {
           setMessages(
             data.map((msg) => ({
               ...msg,
-              from: msg.sender, // Ensure sender is properly mapped
-              to: msg.receiver, // Ensure receiver is properly mapped
+              from: msg.sender,
+              to: msg.receiver,
             }))
           );
-        });
-    }
+        }
+      }
+    };
+
+    loadChatHistory();
   }, [activeUser, username]);
 
   useEffect(() => {
@@ -84,7 +85,7 @@ function Chat() {
     // Remove the token from localStorage
     localStorage.removeItem("authToken");
     // Redirect to the login page
-    router.push("/login");
+    router.push("/");
   };
 
   return (

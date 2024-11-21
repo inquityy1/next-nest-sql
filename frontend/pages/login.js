@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
+import { loginUser } from "@/utils/req/chatReq";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -13,27 +14,12 @@ export default function Login() {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:3000/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Failed to login.");
-        return;
-      }
-
-      const data = await response.json();
-      localStorage.setItem("authToken", data.token); // Save token to localStorage
-      localStorage.setItem("username", data.username); // Save token to localStorage
-      console.log("Saved username:", data.username);
+      const data = await loginUser(username, password);
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("username", data.username);
 
       toast.success("Logged in successfully!");
-      router.push("/chat"); // Redirect to chat page
+      router.push("/chat");
     } catch (err) {
       setError("Username or password uncorrect");
     }

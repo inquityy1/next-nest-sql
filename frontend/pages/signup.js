@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
+import { signupUser } from "@/utils/req/chatReq";
 
 export default function Signup() {
   const [username, setUsername] = useState("");
@@ -13,22 +14,9 @@ export default function Signup() {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:3000/auth/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Failed to sign up.");
-      }
-
-      const data = await response.json();
-      toast.success(data.message); // Notify success
-      router.push("/login"); // Redirect to login page
+      const data = await signupUser(username, password);
+      toast.success(data.message);
+      router.push("/login");
     } catch (err) {
       setError("U have to put both username and password");
     }

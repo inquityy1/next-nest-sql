@@ -12,6 +12,10 @@ export class ChatController {
     @Param('user1') user1: string,
     @Param('user2') user2: string,
   ) {
-    return await this.messagesService.getChatHistory(user1, user2);
+    try {
+      return await this.messagesService.getChatHistory(user1, user2);
+    } catch (error) {
+      throw new Error(`Failed to get chat history: ${error.message}`);
+    }
   }
 }

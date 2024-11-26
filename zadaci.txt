@@ -1,5 +1,5 @@
-1 - unit testovi za auth service i campaign service.
-2 - docker za backend i frontend i za bazu
+1 - unit testovi za auth service i campaign service. - DONE
+2 - docker za backend i frontend i za bazu - DONE
 3 - cela aplikacija(prvenstveno chat i campaign) da se refactoruje da bude event driven sa sledecim libovima:
         - kafka(message sistem event driven), ako treba nek mi predlozi chatGPT neki feature da demonstriramo kafku
         - redis(optimizacija i kesiranje), ako treba nek mi predlozi chatGPT neki feature da demonstriramo redis

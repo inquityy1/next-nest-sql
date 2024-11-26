@@ -3,7 +3,7 @@ import { UserService } from './auth.service';
 import { Repository } from 'typeorm';
 import { User } from './auth.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 const mockUserRepository = () => ({
   findOne: jest.fn(),

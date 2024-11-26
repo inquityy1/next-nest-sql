@@ -8,7 +8,7 @@ import {
   deleteCampaign,
   searchCampaigns,
 } from "@/utils/req/requests";
-import { formatDate } from "@/utils/formatDate/FormatDate";
+// import { formatDate } from "@/utils/formatDate/FormatDate";
 import useInfiniteScrollCampaigns from "@/utils/hooks/useInfiniteScrollCampaigns";
 
 import CampaignForm from "@/components/campaignForm/CampaignForm";
@@ -29,6 +29,11 @@ const Campaigns = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [query, setQuery] = useState("");
   const [infiniteCampaigns, setInfiniteCampaigns] = useState([]);
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toISOString().split("T")[0];
+  };
 
   const updateCampaigns = useUpdateCampaigns(
     currentPage,

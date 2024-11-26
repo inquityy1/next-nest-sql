@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './auth.entity';
 import * as bcrypt from 'bcrypt';
-import { ValidationException } from 'src/common/exceptions/validation.exception';
+import { ValidationException } from '../common/exceptions/validation.exception';
 
 @Injectable()
 export class UserService {

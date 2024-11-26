@@ -1,6 +1,6 @@
 import { ValidationException } from '../exceptions/validation.exception';
 import { Not, Repository } from 'typeorm';
-import { Campaign } from 'src/campaign/campaign.entity';
+import { Campaign } from '../../campaign/campaign.entity';
 
 export async function validateCampaignName(
   name: string,

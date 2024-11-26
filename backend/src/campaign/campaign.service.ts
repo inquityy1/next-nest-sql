@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { Campaign } from './campaign.entity';
-import { ValidationException } from 'src/common/exceptions/validation.exception';
+import { ValidationException } from '../common/exceptions/validation.exception';
 import {
   validateCampaignName,
   validateBudget,
   validateDates,
-} from 'src/common/utils/validation.utils';
+} from '../common/utils/validation.utils';
 
 @Injectable()
 export class CampaignService {

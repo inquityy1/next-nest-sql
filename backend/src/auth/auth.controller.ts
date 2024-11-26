@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get } from '@nestjs/common';
 import { UserService } from './auth.service';
-import { ValidationException } from 'src/common/exceptions/validation.exception';
+import { ValidationException } from '../common/exceptions/validation.exception';
 import * as jwt from 'jsonwebtoken';
 
 @Controller('auth')

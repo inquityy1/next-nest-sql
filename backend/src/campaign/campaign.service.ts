@@ -8,67 +8,93 @@ import {
   validateBudget,
   validateDates,
 } from '../common/utils/validation.utils';
+import { KafkaService } from '../kafka/kafka.service';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class CampaignService {
   constructor(
     @InjectRepository(Campaign)
     private readonly campaignRepository: Repository<Campaign>,
+    private readonly kafkaService: KafkaService,
+    private readonly redisService: RedisService,
   ) {}
 
-  async findAll(
-    page: number,
-    limit: number,
-  ): Promise<{ data: Campaign[]; total: number; page: number; limit: number }> {
+  async findAll(page: number, limit: number) {
+    const cacheKey = `campaigns_page_${page}_limit_${limit}`;
     try {
-      const [data, total] = await this.campaignRepository.findAndCount({
-        skip: (page - 1) * limit,
-        take: limit,
-      });
-      return { data, total, page, limit };
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
     } catch (error) {
-      throw new Error(`Failed to fetch campaigns: ${error.message}`);
+      console.error(`Redis error (findAll): ${error.message}`);
+      // Proceed to fetch from DB even if Redis fails
     }
+
+    const [data, total] = await this.campaignRepository.findAndCount({
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const result = { data, total, page, limit };
+
+    try {
+      await this.redisService.set(cacheKey, result, 3600); // Cache result
+    } catch (error) {
+      console.error(`Redis error (set): ${error.message}`);
+    }
+
+    return result;
   }
 
   async create(campaignData: Partial<Campaign>): Promise<Campaign> {
     const { name, budget = 0, startDate, endDate } = campaignData;
 
     try {
+      // Set endDate to startDate if endDate is missing
+      const validatedEndDate = endDate || startDate;
+
       // Validate name
       await validateCampaignName(name, this.campaignRepository);
 
       // Validate budget
       validateBudget(budget);
 
-      // Validate start and end dates
-      validateDates(startDate, endDate);
+      // Validate start and end dates (after assigning endDate if missing)
+      validateDates(startDate, validatedEndDate);
 
       const campaign = this.campaignRepository.create({
-        ...campaignData,
-        startDate: new Date(startDate).toISOString(),
-        endDate: endDate
-          ? new Date(endDate).toISOString()
-          : new Date(startDate).toISOString(),
+        name,
         budget,
+        startDate,
+        endDate: validatedEndDate,
       });
+      const savedCampaign = await this.campaignRepository.save(campaign);
 
-      console.log(startDate, endDate);
+      await this.redisService.delMatching('campaigns_*'); // Invalidate cache
+      await this.kafkaService.emit('campaign.created', savedCampaign); // Emit Kafka event
 
-      return this.campaignRepository.save(campaign);
+      return savedCampaign;
     } catch (error) {
+      if (error instanceof ValidationException) {
+        throw error; // Ensure validation errors are thrown as validation exceptions
+      }
       throw new Error(`Failed to create campaign: ${error.message}`);
     }
   }
 
   async update(id: number, campaignData: Partial<Campaign>): Promise<Campaign> {
     try {
+      // Find the campaign by id
       const campaign = await this.campaignRepository.findOne({ where: { id } });
-      const { name, budget = 0, startDate, endDate } = campaignData;
 
       if (!campaign) {
         throw new ValidationException('Campaign not found');
       }
+
+      // Extract new values from campaignData
+      const { name, budget = 0, startDate, endDate } = campaignData;
 
       // Validate name
       await validateCampaignName(name, this.campaignRepository, id);
@@ -76,12 +102,34 @@ export class CampaignService {
       // Validate budget
       validateBudget(budget);
 
-      // Validate start and end dates
-      validateDates(startDate, endDate);
+      // If endDate is not provided, set it to startDate
+      const validatedEndDate = endDate || startDate;
 
-      Object.assign(campaign, campaignData);
-      return this.campaignRepository.save(campaign);
+      // Validate dates
+      validateDates(startDate, validatedEndDate);
+
+      // Update campaign data
+      Object.assign(campaign, {
+        name,
+        budget,
+        startDate,
+        endDate: validatedEndDate,
+      });
+
+      // Save the updated campaign
+      const updatedCampaign = await this.campaignRepository.save(campaign);
+
+      // Invalidate cache
+      await this.redisService.delMatching('campaigns_*');
+
+      // Emit Kafka event
+      await this.kafkaService.emit('campaign.updated', updatedCampaign);
+
+      return updatedCampaign;
     } catch (error) {
+      if (error instanceof ValidationException) {
+        throw error;
+      }
       throw new Error(`Failed to update campaign: ${error.message}`);
     }
   }
@@ -89,6 +137,9 @@ export class CampaignService {
   async delete(id: number): Promise<void> {
     try {
       await this.campaignRepository.delete(id);
+
+      await this.redisService.delMatching('campaigns_*'); // Invalidate cache
+      await this.kafkaService.emit('campaign.deleted', { id }); // Emit Kafka event
     } catch (error) {
       throw new Error(`Failed to delete campaign: ${error.message}`);
     }

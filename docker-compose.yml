@@ -1,4 +1,50 @@
 services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092 # Use container name `kafka`
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+    ports:
+      - "9093:9093"
+
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ZOOKEEPER_TICK_TIME=2000
+      - ZOOKEEPER_SERVER_ID=1
+      - ZOOKEEPER_MY_ID=1
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=qqwwee11
+      - POSTGRES_DB=nextandnest
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
   backend:
     build:
       context: ./backend
@@ -7,10 +53,14 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-    volumes:
-      - /app/node_modules
+      - KAFKA_HOST=kafka
+      - KAFKA_PORT=9092
     depends_on:
       - db
+      - redis
+      - kafka
+    volumes:
+      - ./backend:/app
 
   frontend:
     build:
@@ -20,21 +70,10 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=production
-    volumes:
-      - /app/node_modules
     depends_on:
       - backend
-
-  db:
-    image: postgres:15
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: qqwwee11
-      POSTGRES_DB: nextandnest
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - /app/node_modules
 
 volumes:
   postgres-data:

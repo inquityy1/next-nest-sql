@@ -7,6 +7,7 @@ import { User } from './auth/auth.entity';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { Chat } from './chat/chat.entity';
+import { RedisModule } from './redis/redis.module'; // Import the RedisModule
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { Chat } from './chat/chat.entity';
         synchronize: true,
       }),
     }),
+    RedisModule, // Add the custom RedisModule here
     CampaignModule,
     AuthModule,
     ChatModule,

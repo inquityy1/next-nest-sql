@@ -24,13 +24,19 @@ jobs:
           node-version: 18
 
       # Step 3: Install dependencies
-      - name: Install dependencies
+      - name: Install dependencies for backend
+        working-directory: ./backend
         run: npm install
 
-      # Step 4: Run linting
-      - name: Run Linting
-        run: npm run lint
+      - name: Run tests for backend
+        working-directory: ./backend
+        run: npm test
 
-      # Step 5: Run unit tests
-      - name: Run Unit Tests
+      # Install and test frontend
+      - name: Install dependencies for frontend
+        working-directory: ./frontend
+        run: npm install
+
+      - name: Run tests for frontend
+        working-directory: ./frontend
         run: npm test

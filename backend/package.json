@@ -83,7 +83,6 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node",
-    "globalTeardown": "./test/teardown.ts"
+    "testEnvironment": "node"
   }
 }

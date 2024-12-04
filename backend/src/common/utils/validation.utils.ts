@@ -1,19 +1,18 @@
 import { ValidationException } from '../exceptions/validation.exception';
-import { Not, Repository } from 'typeorm';
+import { Not } from 'typeorm';
 import { Campaign } from '../../campaign/campaign.entity';
+import { CampaignRepository } from '../../../src/campaign/campaign.repository';
 
 export async function validateCampaignName(
   name: string,
-  campaignRepository: Repository<Campaign>,
+  campaignRepository: CampaignRepository,
   currentCampaignId?: number,
 ): Promise<void> {
   if (!name) {
     throw new ValidationException('Campaign name is required');
   }
 
-  const existingCampaign = await campaignRepository.findOne({
-    where: { name, id: currentCampaignId ? Not(currentCampaignId) : undefined },
-  });
+  const existingCampaign = await campaignRepository.findByExactName(name);
 
   if (existingCampaign) {
     throw new ValidationException('Campaign name must be unique.');

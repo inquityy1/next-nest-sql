@@ -5,10 +5,11 @@ import { CampaignService } from './campaign.service';
 import { CampaignController } from './campaign.controller';
 import { KafkaModule } from '../kafka/kafka.module';
 import { RedisModule } from '../redis/redis.module';
+import { CampaignRepository } from './campaign.repository';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Campaign]), KafkaModule, RedisModule],
+  imports: [TypeOrmModule.forFeature([Campaign]), RedisModule, KafkaModule],
   controllers: [CampaignController],
-  providers: [CampaignService],
+  providers: [CampaignService, CampaignRepository, RedisModule, KafkaModule],
 })
 export class CampaignModule {}

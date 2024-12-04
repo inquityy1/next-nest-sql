@@ -3,12 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Chat } from './chat.entity';
 import { RedisService } from '../redis/redis.service';
+import { ChatRepository } from './chat.repository';
 
 @Injectable()
 export class MessagesService {
   constructor(
     @InjectRepository(Chat)
     private messageRepository: Repository<Chat>,
+    private messageRepositoryR: ChatRepository,
     private redisService: RedisService,
   ) {}
 
@@ -64,7 +66,9 @@ export class MessagesService {
         ],
         order: { createdAt: 'ASC' }, // Oldest to newest
       });
+
       await this.redisService.set(cacheKey, chatHistory); // Cache the result for future use
+
       return chatHistory;
     } catch (error) {
       throw new Error(`Failed to get chat history: ${error.message}`);

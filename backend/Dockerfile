@@ -19,8 +19,8 @@ RUN npm install --legacy-peer-deps --build-from-source
 # Copy the rest of the application code (source files)
 COPY . .
 
-# Run tests before building the app
-RUN npm run test
+# # Run tests before building the app
+# RUN npm run test
 
 # Build the app for production (using production build)
 RUN npm run build

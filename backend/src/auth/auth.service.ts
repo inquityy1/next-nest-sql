@@ -1,39 +1,38 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { UserRepository } from './auth.repository';
 import { User } from './auth.entity';
 import * as bcrypt from 'bcryptjs';
 import { ValidationException } from '../common/exceptions/validation.exception';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-  ) {}
+  constructor(private readonly userRepository: UserRepository) {}
 
   async createUser(username: string, password: string): Promise<User> {
+    const existingUser = await this.userRepository.findUserByUsername(username);
     try {
-      const existingUser = await this.userRepository.findOne({
-        where: { username },
-      });
       if (existingUser) {
         throw new ValidationException('Username already exists.');
       }
 
       const user = new User();
       user.username = username;
-      user.password = password; // Hashing will happen automatically before insert
+      user.password = password;
 
-      return this.userRepository.save(user);
+      return this.userRepository.saveUser(user);
     } catch (error) {
+      // Preserve the original exception type
+      if (existingUser) {
+        throw new ValidationException('Username already exists.');
+      }
+
       throw new Error(`Failed to create user: ${error.message}`);
     }
   }
 
   async findUserByUsername(username: string): Promise<User> {
     try {
-      return this.userRepository.findOne({ where: { username } });
+      return this.userRepository.findUserByUsername(username);
     } catch (error) {
       throw new Error(`Failed to find user by username: ${error.message}`);
     }
@@ -52,10 +51,7 @@ export class UserService {
 
   async getAllUsers(): Promise<{ id: Number; username: string }[]> {
     try {
-      const users = await this.userRepository.find({
-        select: ['id', 'username'],
-      });
-      return users;
+      return this.userRepository.getAllUsers();
     } catch (error) {
       throw new Error(`Failed to get all users: ${error.message}`);
     }

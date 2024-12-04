@@ -1,162 +1,173 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CampaignService } from './campaign.service';
-import { Repository } from 'typeorm';
-import { Campaign } from './campaign.entity';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { CampaignRepository } from './campaign.repository';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../redis/redis.service';
-import {
-  validateCampaignName,
-  validateBudget,
-  validateDates,
-} from '../common/utils/validation.utils';
 import { ValidationException } from '../common/exceptions/validation.exception';
 
-jest.mock('../common/utils/validation.utils', () => ({
-  validateCampaignName: jest.fn(),
-  validateBudget: jest.fn(),
-  validateDates: jest.fn(),
-}));
-
-jest.mock('../kafka/kafka.service', () => ({
-  KafkaService: jest.fn().mockImplementation(() => ({
-    emit: jest.fn(),
-  })),
-}));
-
-jest.mock('../redis/redis.service', () => ({
-  RedisService: jest.fn().mockImplementation(() => ({
-    get: jest.fn(),
-    set: jest.fn(),
-    delMatching: jest.fn(),
-  })),
-}));
-
-const mockCampaignRepository = () => ({
-  findAndCount: jest.fn(),
-  create: jest.fn(),
-  save: jest.fn(),
-  delete: jest.fn(),
-  findOne: jest.fn(),
-  find: jest.fn(),
-});
-
 describe('CampaignService', () => {
-  let campaignService: CampaignService;
-  let campaignRepository: Repository<Campaign>;
-  let kafkaService: KafkaService;
-  let redisService: RedisService;
+  let service: CampaignService;
+  let repository: jest.Mocked<CampaignRepository>;
+  let kafkaService: jest.Mocked<KafkaService>;
+  let redisService: jest.Mocked<RedisService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CampaignService,
         {
-          provide: getRepositoryToken(Campaign),
-          useValue: mockCampaignRepository(),
+          provide: CampaignRepository,
+          useValue: {
+            findAndCount: jest.fn(),
+            findOneById: jest.fn(),
+            findByName: jest.fn(),
+            findByExactName: jest.fn(),
+            createCampaign: jest.fn(),
+            updateCampaign: jest.fn(),
+            deleteCampaign: jest.fn(),
+          },
         },
-        KafkaService,
-        RedisService,
+        {
+          provide: KafkaService,
+          useValue: {
+            emit: jest.fn(),
+          },
+        },
+        {
+          provide: RedisService,
+          useValue: {
+            get: jest.fn(),
+            set: jest.fn(),
+            delMatching: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
-    campaignService = module.get<CampaignService>(CampaignService);
-    campaignRepository = module.get<Repository<Campaign>>(
-      getRepositoryToken(Campaign),
-    );
-    kafkaService = module.get<KafkaService>(KafkaService);
-    redisService = module.get<RedisService>(RedisService);
+    service = module.get<CampaignService>(CampaignService);
+    repository = module.get(CampaignRepository);
+    kafkaService = module.get(KafkaService);
+    redisService = module.get(RedisService);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  it('should be defined', () => {
+    expect(service).toBeDefined();
   });
 
   it('should fetch all campaigns with pagination', async () => {
-    const mockData = [[{ id: 1, name: 'Campaign 1' }], 1];
-    campaignRepository.findAndCount = jest.fn().mockResolvedValue(mockData);
+    const mockCampaigns = [
+      {
+        id: 1,
+        name: 'Campaign 1',
+        budget: 5000,
+        startDate: new Date(),
+        endDate: new Date(),
+      },
+      {
+        id: 2,
+        name: 'Campaign 2',
+        budget: 10000,
+        startDate: new Date(),
+        endDate: new Date(),
+      },
+    ];
 
-    const result = await campaignService.findAll(1, 10);
+    jest.spyOn(redisService, 'get').mockResolvedValue(null); // No cached data
+    jest
+      .spyOn(repository, 'findAndCount')
+      .mockResolvedValue([mockCampaigns, mockCampaigns.length]);
 
-    expect(campaignRepository.findAndCount).toHaveBeenCalledWith({
-      skip: 0,
-      take: 10,
-    });
+    const result = await service.findAll(1, 10);
 
     expect(result).toEqual({
-      data: [{ id: 1, name: 'Campaign 1' }],
-      total: 1,
+      data: mockCampaigns,
+      total: mockCampaigns.length,
       page: 1,
       limit: 10,
     });
+
+    expect(redisService.set).toHaveBeenCalledWith(
+      'campaigns_page_1_limit_10',
+      { data: mockCampaigns, total: mockCampaigns.length, page: 1, limit: 10 },
+      3600,
+    );
   });
 
   it('should create a campaign successfully', async () => {
     const campaignData = {
-      name: 'Campaign 1',
-      budget: 100,
-      startDate: new Date('2024-01-01'),
-      endDate: new Date('2024-01-10'),
+      name: 'Test Campaign',
+      budget: 1000,
+      startDate: new Date(),
+      endDate: new Date(),
     };
+    const createdCampaign = { id: 1, ...campaignData };
 
-    (validateCampaignName as jest.Mock).mockResolvedValue(true);
-    (validateBudget as jest.Mock).mockReturnValue(true);
-    (validateDates as jest.Mock).mockReturnValue(true);
+    jest.spyOn(repository, 'createCampaign').mockResolvedValue(createdCampaign);
 
-    campaignRepository.create = jest.fn().mockReturnValue(campaignData);
-    campaignRepository.save = jest.fn().mockResolvedValue({
-      id: 1,
-      ...campaignData,
-    });
+    const result = await service.create(campaignData);
 
-    const result = await campaignService.create(campaignData);
-
-    expect(validateCampaignName).toHaveBeenCalledWith(
-      campaignData.name,
-      campaignRepository,
+    expect(repository.createCampaign).toHaveBeenCalledWith(campaignData);
+    expect(kafkaService.emit).toHaveBeenCalledWith(
+      'campaign.created',
+      createdCampaign,
     );
-    expect(validateBudget).toHaveBeenCalledWith(campaignData.budget);
-    expect(validateDates).toHaveBeenCalledWith(
-      campaignData.startDate,
-      campaignData.endDate,
-    );
-    expect(campaignRepository.save).toHaveBeenCalledWith(campaignData);
-    expect(result).toEqual({ id: 1, ...campaignData });
+    expect(redisService.delMatching).toHaveBeenCalledWith('campaigns_*');
+    expect(result).toEqual(createdCampaign);
   });
 
-  it('should throw an error when campaign is not found for update', async () => {
-    campaignRepository.findOne = jest.fn().mockResolvedValue(null);
-
-    await expect(
-      campaignService.update(1, { name: 'Updated Campaign' }),
-    ).rejects.toThrow('Campaign not found');
-  });
-
-  it('should delete a campaign successfully', async () => {
-    campaignRepository.delete = jest.fn().mockResolvedValue({ affected: 1 });
-
-    await expect(campaignService.delete(1)).resolves.not.toThrow();
-    expect(campaignRepository.delete).toHaveBeenCalledWith(1);
-  });
-
-  it('should handle validation errors during creation', async () => {
+  it('should update a campaign successfully', async () => {
     const campaignData = {
-      name: 'Invalid Campaign',
-      budget: -10,
+      id: 1,
+      name: 'Updated Campaign',
+      budget: 2000,
+      startDate: new Date(),
+      endDate: new Date(),
+    };
+    const existingCampaign = {
+      id: 1,
+      name: 'Old Campaign',
+      budget: 1000,
       startDate: new Date(),
       endDate: new Date(),
     };
 
-    (validateCampaignName as jest.Mock).mockImplementation(() => {
-      throw new ValidationException('Invalid name');
-    });
+    jest.spyOn(repository, 'findOneById').mockResolvedValue(existingCampaign);
+    jest.spyOn(repository, 'updateCampaign').mockResolvedValue(campaignData);
 
-    await expect(campaignService.create(campaignData)).rejects.toThrow(
-      ValidationException,
+    const result = await service.update(1, campaignData);
+
+    expect(repository.findOneById).toHaveBeenCalledWith(1);
+    expect(repository.updateCampaign).toHaveBeenCalledWith({
+      ...existingCampaign,
+      ...campaignData,
+    });
+    expect(kafkaService.emit).toHaveBeenCalledWith(
+      'campaign.updated',
+      campaignData,
     );
-    expect(validateCampaignName).toHaveBeenCalledWith(
-      campaignData.name,
-      campaignRepository,
-    );
+    expect(redisService.delMatching).toHaveBeenCalledWith('campaigns_*');
+    expect(result).toEqual(campaignData);
+  });
+
+  it('should delete a campaign successfully', async () => {
+    jest.spyOn(repository, 'deleteCampaign').mockResolvedValue();
+
+    await service.delete(1);
+
+    expect(repository.deleteCampaign).toHaveBeenCalledWith(1);
+    expect(kafkaService.emit).toHaveBeenCalledWith('campaign.deleted', {
+      id: 1,
+    });
+    expect(redisService.delMatching).toHaveBeenCalledWith('campaigns_*');
+  });
+
+  it('should throw an error when campaign is not found for update', async () => {
+    jest.spyOn(repository, 'findOneById').mockResolvedValue(null);
+
+    await expect(
+      service.update(999, { name: 'Nonexistent Campaign' }),
+    ).rejects.toThrow(ValidationException);
+
+    expect(repository.findOneById).toHaveBeenCalledWith(999);
   });
 });

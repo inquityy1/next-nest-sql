@@ -5,10 +5,9 @@
         - redis(optimizacija i kesiranje), ako treba nek mi predlozi chatGPT neki feature da demonstriramo redis
 4 - napisati prave repo metode koje ce zvati te query-e
 5 - kad se napisu repoi onda idu repo integration testovi
-6 - brisanje typeorm-a - rucni query sa SQLC-om i migracija rucna
-7 - Git actions:
+6 - Git actions:
      - pre commit - lint check i runuju se svi unit testovi u aplikaciji
      - pull request - lint check i svi testovi check
-8 - za sve end pointe inplementirati swagger flow
+7 - za sve end pointe inplementirati swagger flow
 
 pare su: 2000-2500 - na belo

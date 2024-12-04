@@ -1,65 +1,59 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from './auth.service';
-import { Repository } from 'typeorm';
+import { UserRepository } from './auth.repository';
 import { User } from './auth.entity';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
+import { ValidationException } from '../common/exceptions/validation.exception';
 
 const mockUserRepository = () => ({
-  findOne: jest.fn(),
-  save: jest.fn(),
-  find: jest.fn(),
+  findUserByUsername: jest.fn(),
+  saveUser: jest.fn(),
+  getAllUsers: jest.fn(),
 });
 
 describe('UserService', () => {
   let userService: UserService;
-  let userRepository: Partial<Repository<User>>;
+  let userRepository: jest.Mocked<UserRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserService,
-        { provide: getRepositoryToken(User), useValue: mockUserRepository() },
+        { provide: UserRepository, useValue: mockUserRepository() },
       ],
     }).compile();
 
     userService = module.get<UserService>(UserService);
-    userRepository = module.get(getRepositoryToken(User));
+    userRepository = module.get(UserRepository);
   });
 
   it('should create a new user successfully', async () => {
-    userRepository.findOne = jest.fn().mockResolvedValue(null); // No existing user
-    userRepository.save = jest.fn().mockResolvedValue({
+    userRepository.findUserByUsername.mockResolvedValue(null); // No existing user
+    userRepository.saveUser.mockResolvedValue({
       id: 1,
       username: 'testuser',
       password: 'hashed',
-    });
+    } as User);
 
     const result = await userService.createUser('testuser', 'password123');
-    expect(userRepository.findOne).toHaveBeenCalledWith({
-      where: { username: 'testuser' },
-    });
-    expect(userRepository.save).toHaveBeenCalled();
+    expect(userRepository.findUserByUsername).toHaveBeenCalledWith('testuser');
+    expect(userRepository.saveUser).toHaveBeenCalled();
     expect(result).toEqual({ id: 1, username: 'testuser', password: 'hashed' });
   });
 
   it('should throw an error if username already exists', async () => {
-    // Mock the repository method to simulate a user already existing
-    userRepository.findOne = jest.fn().mockResolvedValue({
+    userRepository.findUserByUsername.mockResolvedValue({
       id: 1,
       username: 'testuser',
       password: 'hashed',
+      hashPassword: jest.fn(),
     });
 
-    // Test the service method
     await expect(
       userService.createUser('testuser', 'password123'),
-    ).rejects.toThrow('Username already exists.');
+    ).rejects.toThrow(ValidationException);
 
-    // Ensure the mock was called with the correct conditions
-    expect(userRepository.findOne).toHaveBeenCalledWith({
-      where: { username: 'testuser' },
-    });
+    expect(userRepository.findUserByUsername).toHaveBeenCalledWith('testuser');
   });
 
   it('should validate the password successfully', async () => {
@@ -70,14 +64,12 @@ describe('UserService', () => {
   });
 
   it('should fetch all users', async () => {
-    userRepository.find = jest
-      .fn()
-      .mockResolvedValue([{ id: 1, username: 'testuser' }]);
+    userRepository.getAllUsers.mockResolvedValue([
+      { id: 1, username: 'testuser' },
+    ]);
 
     const result = await userService.getAllUsers();
-    expect(userRepository.find).toHaveBeenCalledWith({
-      select: ['id', 'username'],
-    });
+    expect(userRepository.getAllUsers).toHaveBeenCalled();
     expect(result).toEqual([{ id: 1, username: 'testuser' }]);
   });
 });

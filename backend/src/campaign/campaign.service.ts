@@ -1,6 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
 import { Campaign } from './campaign.entity';
 import { ValidationException } from '../common/exceptions/validation.exception';
 import {
@@ -10,12 +8,12 @@ import {
 } from '../common/utils/validation.utils';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../redis/redis.service';
+import { CampaignRepository } from './campaign.repository';
 
 @Injectable()
 export class CampaignService {
   constructor(
-    @InjectRepository(Campaign)
-    private readonly campaignRepository: Repository<Campaign>,
+    private readonly campaignRepository: CampaignRepository,
     private readonly kafkaService: KafkaService,
     private readonly redisService: RedisService,
   ) {}
@@ -32,10 +30,10 @@ export class CampaignService {
       // Proceed to fetch from DB even if Redis fails
     }
 
-    const [data, total] = await this.campaignRepository.findAndCount({
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const [data, total] = await this.campaignRepository.findAndCount(
+      page,
+      limit,
+    );
 
     const result = { data, total, page, limit };
 
@@ -64,13 +62,12 @@ export class CampaignService {
       // Validate start and end dates (after assigning endDate if missing)
       validateDates(startDate, validatedEndDate);
 
-      const campaign = this.campaignRepository.create({
+      const savedCampaign = await this.campaignRepository.createCampaign({
         name,
         budget,
         startDate,
         endDate: validatedEndDate,
       });
-      const savedCampaign = await this.campaignRepository.save(campaign);
 
       await this.redisService.delMatching('campaigns_*'); // Invalidate cache
       await this.kafkaService.emit('campaign.created', savedCampaign); // Emit Kafka event
@@ -87,7 +84,7 @@ export class CampaignService {
   async update(id: number, campaignData: Partial<Campaign>): Promise<Campaign> {
     try {
       // Find the campaign by id
-      const campaign = await this.campaignRepository.findOne({ where: { id } });
+      const campaign = await this.campaignRepository.findOneById(id);
 
       if (!campaign) {
         throw new ValidationException('Campaign not found');
@@ -117,7 +114,8 @@ export class CampaignService {
       });
 
       // Save the updated campaign
-      const updatedCampaign = await this.campaignRepository.save(campaign);
+      const updatedCampaign =
+        await this.campaignRepository.updateCampaign(campaign);
 
       // Invalidate cache
       await this.redisService.delMatching('campaigns_*');
@@ -136,7 +134,7 @@ export class CampaignService {
 
   async delete(id: number): Promise<void> {
     try {
-      await this.campaignRepository.delete(id);
+      await this.campaignRepository.deleteCampaign(id);
 
       await this.redisService.delMatching('campaigns_*'); // Invalidate cache
       await this.kafkaService.emit('campaign.deleted', { id }); // Emit Kafka event
@@ -147,9 +145,7 @@ export class CampaignService {
 
   async search(name: string): Promise<Campaign[]> {
     try {
-      return this.campaignRepository.find({
-        where: { name: Like(`%${name}%`) },
-      });
+      return this.campaignRepository.findByName(name);
     } catch (error) {
       throw new Error(`Failed to search campaigns: ${error.message}`);
     }

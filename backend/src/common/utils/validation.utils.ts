@@ -1,12 +1,9 @@
 import { ValidationException } from '../exceptions/validation.exception';
-import { Not } from 'typeorm';
-import { Campaign } from '../../campaign/campaign.entity';
 import { CampaignRepository } from '../../../src/campaign/campaign.repository';
 
 export async function validateCampaignName(
   name: string,
   campaignRepository: CampaignRepository,
-  currentCampaignId?: number,
 ): Promise<void> {
   if (!name) {
     throw new ValidationException('Campaign name is required');

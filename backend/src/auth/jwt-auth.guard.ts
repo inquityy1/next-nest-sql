@@ -20,7 +20,7 @@ export class JwtAuthGuard implements CanActivate {
       const decoded = jwt.verify(token, 'SECRET_KEY');
       request.user = decoded; // Attach decoded user to the request
       return true;
-    } catch (_err) {
+    } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
   }

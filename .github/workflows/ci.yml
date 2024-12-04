@@ -24,6 +24,7 @@ jobs:
           node-version: 18
 
       # Step 3: Install dependencies
+      # Install and test backend
       - name: Install dependencies for backend
         working-directory: ./backend
         run: npm install --legacy-peer-deps
@@ -32,11 +33,15 @@ jobs:
         working-directory: ./backend
         run: npm test
 
+      - name: Run lint check
+        working-directory: ./backend
+        run: npm run lint
+
       # Install and test frontend
       - name: Install dependencies for frontend
         working-directory: ./frontend
         run: npm install --legacy-peer-deps
 
-      - name: Run tests for frontend
+      - name: Run lint check
         working-directory: ./frontend
-        run: npm test
+        run: npm run lint

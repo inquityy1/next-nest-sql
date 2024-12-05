@@ -4,14 +4,12 @@ import { CampaignRepository } from '../../../src/campaign/campaign.repository';
 export async function validateCampaignName(
   name: string,
   campaignRepository: CampaignRepository,
-  currentCampaignId?: number,
 ): Promise<void> {
   if (!name) {
     throw new ValidationException('Campaign name is required');
   }
 
   const existingCampaign = await campaignRepository.findByExactName(name);
-  console.log(currentCampaignId);
 
   if (existingCampaign) {
     throw new ValidationException('Campaign name must be unique.');

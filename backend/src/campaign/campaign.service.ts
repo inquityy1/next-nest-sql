@@ -94,7 +94,7 @@ export class CampaignService {
       const { name, budget = 0, startDate, endDate } = campaignData;
 
       // Validate name
-      await validateCampaignName(name, this.campaignRepository, id);
+      await validateCampaignName(name, this.campaignRepository);
 
       // Validate budget
       validateBudget(budget);
